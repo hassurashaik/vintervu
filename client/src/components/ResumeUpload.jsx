@@ -1,6 +1,6 @@
+import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 
 function ResumeUpload() {
   const [file, setFile] = useState(null);
@@ -39,26 +39,52 @@ function ResumeUpload() {
   };
 
   return (
-    <div>
-      <h2>Upload Resume</h2>
-      <input type="file" accept=".pdf,.docx" onChange={handleFileChange} />
-      <button onClick={handleUpload} disabled={!file}>
-        Upload
-      </button>
-      {skills.length > 0 && (
-        <div>
-          <p>
-            <strong>Extracted Skills:</strong> {skills.join(', ')}
-          </p>
-          <p>
-            <strong>Extracted Projects:</strong> {projects.length > 0 ? projects.join(', ') : 'No projects found'}
-          </p>
-          <p>
-            <strong>Inferred Branch:</strong> {branch || 'Unknown'}
-          </p>
-          <button onClick={handleStartInterview}>Start Interview</button>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-purple-100 to-purple-300 p-6 mt-10">
+      <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl">
+        <h2 className="text-3xl font-bold text-center text-purple-600 mb-6">Upload Your Resume</h2>
+
+        <div className="mb-4">
+          <label htmlFor="resume" className="block text-lg font-medium mb-2 text-gray-700">
+            Choose a Resume File (.pdf, .docx)
+          </label>
+          <input
+            type="file"
+            id="resume"
+            accept=".pdf,.docx"
+            onChange={handleFileChange}
+            className="block w-full px-4 py-3 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-purple-500 focus:outline-none"
+          />
         </div>
-      )}
+
+        <button
+          onClick={handleUpload}
+          disabled={!file}
+          className={`w-full py-3 mt-6 bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-all duration-300 ${!file ? 'opacity-50 cursor-not-allowed' : 'hover:bg-purple-700'}`}
+        >
+          Upload Resume
+        </button>
+
+        {skills.length > 0 && (
+          <div className="mt-6 p-6 bg-gray-100 rounded-lg shadow-md">
+            <h3 className="text-2xl font-semibold text-purple-600 mb-4">Extracted Information</h3>
+            <p className="text-lg font-medium mb-2">
+              <strong>Skills:</strong> {skills.join(', ')}
+            </p>
+            <p className="text-lg font-medium mb-2">
+              <strong>Projects:</strong> {projects.length > 0 ? projects.join(', ') : 'No projects found'}
+            </p>
+            <p className="text-lg font-medium mb-4">
+              <strong>Inferred Branch:</strong> {branch || 'Unknown'}
+            </p>
+            <button
+              onClick={handleStartInterview}
+              className="w-full py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md transition-all duration-300 hover:bg-purple-700"
+            >
+              Start Interview
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,6 @@
-/*import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import './Interview.css';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const Interview = () => {
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -9,8 +8,7 @@ const Interview = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState(null);
   const [isInterviewEnded, setIsInterviewEnded] = useState(false);
-  const [debugMessage, setDebugMessage] = useState('');
-  const [recognitionIsRunning, setRecognitionIsRunning] = useState(false);
+  const [askedQuestions, setAskedQuestions] = useState(new Set());
 
   const webcamRef = useRef(null);
   const avatarVideoRef = useRef(null);
@@ -26,9 +24,7 @@ const Interview = () => {
       recog.lang = 'en-US';
       recog.maxAlternatives = 1;
       setRecognition(recog);
-      setDebugMessage('SpeechRecognition initialized');
     } else {
-      setDebugMessage('SpeechRecognition not supported');
       alert('Please use Chrome or Edge for speech recognition');
     }
 
@@ -37,11 +33,9 @@ const Interview = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (webcamRef.current) {
           webcamRef.current.srcObject = stream;
-          setDebugMessage(prev => prev + '; Webcam started');
         }
       } catch (error) {
         console.error('Webcam error:', error);
-        setDebugMessage(prev => prev + '; Webcam error: ' + error.message);
       }
     };
 
@@ -56,118 +50,78 @@ const Interview = () => {
   }, []);
 
   const stopWebcam = () => {
-    if (webcamRef.current?.srcObject) {
+    if (webcamRef.current && webcamRef.current.srcObject) {
       const tracks = webcamRef.current.srcObject.getTracks();
       tracks.forEach(track => track.stop());
       webcamRef.current.srcObject = null;
-      setDebugMessage(prev => prev + '; Webcam stopped');
-    }
-  };
-
-  const switchAvatarVideo = async (filename, loop = true) => {
-    if (!avatarVideoRef.current) return;
-
-    const video = avatarVideoRef.current;
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-
-    video.src = `/assets/${filename}`;
-    video.loop = loop;
-    video.muted = true;
-    video.playsInline = true;
-    video.controls = false;
-
-    try {
-      await video.play();
-      console.log(`▶️ Playing ${filename}`);
-    } catch (error) {
-      console.warn(`🚫 Video play failed: ${error.message}`);
     }
   };
 
   const fetchNextQuestion = async () => {
     if (isInterviewEnded) return;
-  
     try {
-      const response = await axios.get('http://localhost:5000/api/interview/next-question', {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-  
-      const questionText = response.data.question;
-  
-      if (questionText) {
-        setCurrentQuestion(questionText);
-  
-        setTimeout(async () => {
-          // 🔊 Start talking video as speech starts
-          await switchAvatarVideo('talking.mp4', true);
-  
-          const utterance = new SpeechSynthesisUtterance(questionText);
-          utterance.lang = 'en-US';
-          utterance.rate = 1;
-  
-          // ⏹️ After speech ends, switch to silent avatar
-          utterance.onend = async () => {
-            await switchAvatarVideo('normal.mp4', true);
-          };
-  
-          speechSynthesis.speak(utterance);
-        }, 200);
+      const response = await axios.get('http://localhost:5000/api/interview/next-question');
+      const question = response.data.question;
+
+      if (question && !askedQuestions.has(question)) {
+        setCurrentQuestion(question);
+        setAskedQuestions(prev => new Set(prev).add(question));
+
+        if (avatarVideoRef.current) {
+          avatarVideoRef.current.src = '/assets/speaking.mp4';
+          avatarVideoRef.current.load();
+          avatarVideoRef.current.play().catch((err) => console.error('Play error:', err));
+        }
       } else {
-        // No more questions
         setCurrentQuestion(null);
-        await switchAvatarVideo('normal.mp4', true);
       }
     } catch (error) {
-      console.error('Fetch question error:', error);
+      console.error('Fetch next question error:', error);
     }
   };
-  
+
   const startRecording = async () => {
-    if (isInterviewEnded || !recognition || recognitionIsRunning) {
-      if (!recognition) alert('Speech recognition not supported');
-      return;
+    if (isInterviewEnded || !recognition) return;
+
+    if (avatarVideoRef.current) {
+      avatarVideoRef.current.pause();
     }
-  
+
+    try {
+      const permission = await navigator.permissions.query({ name: 'microphone' });
+      if (permission.state === 'denied') {
+        alert('Microphone access denied. Please enable it in browser settings.');
+        return;
+      }
+    } catch (error) {
+      console.error('Permission check error:', error);
+    }
+
     setIsRecording(true);
-    setRecognitionIsRunning(true);
-  
-    recognition.onstart = () => {
-      console.log('🎙️ Recording started');
-      // 🚫 Do NOT switch video here
-    };
-  
+
     recognition.onresult = async (event) => {
       const transcript = event.results[0][0].transcript;
-      console.log('📝 Transcript:', transcript);
       await recordTranscript(transcript);
     };
-  
+
     recognition.onerror = async (event) => {
-      console.error('Speech error:', event.error);
       if (event.error === 'no-speech') {
         await recordTranscript('');
       }
       setIsRecording(false);
-      setRecognitionIsRunning(false);
     };
-  
+
     recognition.onend = () => {
-      console.log('🛑 Recording ended');
       setIsRecording(false);
-      setRecognitionIsRunning(false);
     };
-  
+
     try {
       recognition.start();
     } catch (error) {
       console.error('Recognition start error:', error);
       setIsRecording(false);
-      setRecognitionIsRunning(false);
     }
   };
-  
 
   const recordTranscript = async (transcript) => {
     try {
@@ -175,15 +129,20 @@ const Interview = () => {
         audio: transcript || 'No speech detected',
         question: currentQuestion
       });
-      setResponses([...responses, {
-        question: currentQuestion,
-        response: response.data.response,
-        score: response.data.score
-      }]);
+
+      setResponses(prev => [
+        ...prev,
+        {
+          question: currentQuestion,
+          response: response.data.response,
+          score: response.data.score
+        }
+      ]);
+
       setCurrentQuestion(null);
       await fetchNextQuestion();
     } catch (error) {
-      console.error('Record error:', error);
+      console.error('Record response error:', error);
     }
   };
 
@@ -192,7 +151,10 @@ const Interview = () => {
       const response = await axios.post('http://localhost:5000/api/interview/end-interview');
       setIsInterviewEnded(true);
       stopWebcam();
-      if (avatarVideoRef.current) avatarVideoRef.current.pause();
+      if (avatarVideoRef.current) {
+        avatarVideoRef.current.pause();
+        avatarVideoRef.current.currentTime = 0;
+      }
       navigate('/feedback', { state: response.data });
     } catch (error) {
       console.error('End interview error:', error);
@@ -206,334 +168,81 @@ const Interview = () => {
   }, [currentQuestion, responses]);
 
   return (
-    <div className="interview-container">
-      <div className="main-section">
-        <div className="webcam-section">
+    <div className="flex flex-col h-screen p-5 bg-gray-100">
+      <div className="flex flex-1 gap-5">
+        {/* Left: Avatar + Webcam + Buttons */}
+        <div className="flex flex-col items-center gap-2 w-[320px]">
+          <div className="relative w-full max-w-md border-2 border-gray-300 rounded-lg overflow-hidden">
+            <video ref={avatarVideoRef} className="w-full rounded-lg" muted playsInline />
+          </div>
           <video
-            ref={avatarVideoRef}
-            className="avatar-video"
-            muted
+            ref={webcamRef}
             autoPlay
-            playsInline
+            className="w-full max-w-md border-2 border-gray-300 rounded-lg"
+            style={{ maxHeight: '300px' }}
           />
-          <video ref={webcamRef} autoPlay className="webcam-feed" />
+
+          {/* Buttons Positioned Below Webcam */}
+          <div className="flex justify-center gap-4 mt-4">
+            <button
+              onClick={startRecording}
+              disabled={isRecording || !currentQuestion || isInterviewEnded}
+              className={`px-6 py-3 text-white text-lg rounded ${
+                isRecording || !currentQuestion || isInterviewEnded
+                  ? 'bg-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {isRecording ? 'Recording...' : 'Record Response'}
+            </button>
+
+            <button
+              onClick={endInterview}
+              disabled={isInterviewEnded}
+              className={`px-6 py-3 text-white text-lg rounded ${
+                isInterviewEnded
+                  ? 'bg-gray-500 cursor-not-allowed'
+                  : 'bg-red-600 hover:bg-red-700'
+              }`}
+            >
+              End Interview
+            </button>
+          </div>
         </div>
-        <div className="chat-section">
-          <div className="messages-list">
+
+        {/* Right: Scrollable Q&A Window */}
+        <div className="flex flex-col w-full bg-white border border-gray-300 rounded-lg p-4">
+          <h2 className="text-xl font-semibold mb-2 text-center">Interview Responses</h2>
+
+          <div
+            className="flex flex-col gap-2 overflow-y-auto pr-3"
+            style={{ height: '70vh' }}
+          >
             {responses.map((res, index) => (
-              <div key={index} className="message-group">
-                <div className="message question-message">
-                  <div className="question-bubble"><strong>Question:</strong> {res.question}</div>
+              <div key={index} className="flex flex-col gap-1">
+                <div className="flex justify-start">
+                  <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                    <strong>Question:</strong> {res.question}
+                  </div>
                 </div>
-                <div className="message answer-message">
-                  <div className="answer-bubble"><strong>Answer:</strong> {res.response}</div>
+                <div className="flex justify-end">
+                  <div className="bg-green-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                    <strong>Answer:</strong> {res.response}
+                  </div>
                 </div>
               </div>
             ))}
             {currentQuestion && !isInterviewEnded && (
-              <div className="message question-message">
-                <div className="question-bubble"><strong>Question:</strong> {currentQuestion}</div>
+              <div className="flex justify-start">
+                <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                  <strong>Question:</strong> {currentQuestion}
+                </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
         </div>
       </div>
-
-      <div className="controls">
-        <button onClick={startRecording} disabled={isRecording || !currentQuestion || isInterviewEnded}>
-          {isRecording ? 'Recording...' : 'Record Response'}
-        </button>
-        <button onClick={fetchNextQuestion} disabled={isRecording || isInterviewEnded}>
-          Next Question
-        </button>
-        <button onClick={endInterview} disabled={isInterviewEnded}>
-          End Interview
-        </button>
-      </div>
-    </div>
-  );
-};
-
-export default Interview;*/
-
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import './Interview.css';
-
-const Interview = () => {
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [responses, setResponses] = useState([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recognition, setRecognition] = useState(null);
-  const [isInterviewEnded, setIsInterviewEnded] = useState(false);
-  const [debugMessage, setDebugMessage] = useState('');
-  const [recognitionIsRunning, setRecognitionIsRunning] = useState(false);
-  const [isFetchingQuestion, setIsFetchingQuestion] = useState(false);
-
-  const webcamRef = useRef(null);
-  const avatarVideoRef = useRef(null);
-  const messagesEndRef = useRef(null);
-  const lastSpokenQuestionRef = useRef(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recog = new SpeechRecognition();
-      recog.continuous = false;
-      recog.interimResults = false;
-      recog.lang = 'en-US';
-      recog.maxAlternatives = 1;
-      setRecognition(recog);
-      setDebugMessage('SpeechRecognition initialized');
-    } else {
-      setDebugMessage('SpeechRecognition not supported');
-      alert('Please use Chrome or Edge for speech recognition');
-    }
-
-    const startWebcam = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (webcamRef.current) {
-          webcamRef.current.srcObject = stream;
-          setDebugMessage(prev => prev + '; Webcam started');
-        }
-      } catch (error) {
-        console.error('Webcam error:', error);
-        setDebugMessage(prev => prev + '; Webcam error: ' + error.message);
-      }
-    };
-
-    startWebcam();
-    switchAvatarVideo('normal.mp4', true);
-    fetchNextQuestion();
-
-    return () => {
-      if (recognition) recognition.stop();
-      stopWebcam();
-      if (avatarVideoRef.current) avatarVideoRef.current.pause();
-      speechSynthesis.cancel(); // Cancel any ongoing TTS on unmount
-    };
-  }, []);
-
-  const stopWebcam = () => {
-    if (webcamRef.current?.srcObject) {
-      const tracks = webcamRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      webcamRef.current.srcObject = null;
-      setDebugMessage(prev => prev + '; Webcam stopped');
-    }
-  };
-
-  const switchAvatarVideo = async (filename, loop = true) => {
-    if (!avatarVideoRef.current) return;
-
-    const video = avatarVideoRef.current;
-    video.pause();
-    video.removeAttribute('src');
-    video.load();
-
-    video.src = `/assets/${filename}`;
-    video.loop = loop;
-    video.muted = true;
-    video.playsInline = true;
-    video.controls = false;
-
-    try {
-      await video.play();
-      console.log(`▶️ Playing ${filename}`);
-    } catch (error) {
-      console.warn(`🚫 Video play failed: ${error.message}`);
-    }
-  };
-
-  const fetchNextQuestion = async () => {
-    if (isInterviewEnded || isFetchingQuestion) {
-      console.log('fetchNextQuestion skipped: interview ended or already fetching');
-      return;
-    }
-  
-    setIsFetchingQuestion(true);
-    try {
-      console.log('Fetching next question...');
-      const response = await axios.get('http://localhost:5000/api/interview/next-question', {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-  
-      const questionText = response.data.question;
-      console.log('Fetched question:', questionText);
-  
-      // ✅ Only proceed if it's a new question
-      if (questionText && questionText !== lastSpokenQuestionRef.current) {
-        setCurrentQuestion(questionText);
-        lastSpokenQuestionRef.current = questionText;
-  
-        // Delay then speak and show talking video
-        setTimeout(async () => {
-          await switchAvatarVideo('talking.mp4', true);
-  
-          speechSynthesis.cancel(); // cancel any old speech
-          const utterance = new SpeechSynthesisUtterance(questionText);
-          utterance.lang = 'en-US';
-          utterance.rate = 1;
-  
-          utterance.onend = async () => {
-            await switchAvatarVideo('normal.mp4', true);
-          };
-  
-          speechSynthesis.speak(utterance);
-        }, 200);
-      } else if (!questionText) {
-        console.log('No more questions available');
-        setCurrentQuestion(null);
-        await switchAvatarVideo('normal.mp4', true);
-      } else {
-        console.log('Duplicate question, skipping TTS');
-      }
-    } catch (error) {
-      console.error('Fetch question error:', error);
-      await switchAvatarVideo('normal.mp4', true);
-    } finally {
-      setIsFetchingQuestion(false);
-    }
-  };
-  
-  const startRecording = async () => {
-    if (isInterviewEnded || !recognition || recognitionIsRunning) {
-      if (!recognition) alert('Speech recognition not supported');
-      return;
-    }
-
-    setIsRecording(true);
-    setRecognitionIsRunning(true);
-
-    recognition.onstart = () => {
-      console.log('🎙️ Recording started');
-      switchAvatarVideo('normal.mp4', true);
-    };
-
-    recognition.onresult = async (event) => {
-      const transcript = event.results[0][0].transcript;
-      console.log('📝 Transcript:', transcript);
-      await recordTranscript(transcript);
-    };
-
-    recognition.onerror = async (event) => {
-      console.error('Speech error:', event.error);
-      if (event.error === 'no-speech') {
-        await recordTranscript('');
-      }
-      setIsRecording(false);
-      setRecognitionIsRunning(false);
-      await switchAvatarVideo('normal.mp4', true);
-    };
-
-    recognition.onend = () => {
-      console.log('🛑 Recording ended');
-      setIsRecording(false);
-      setRecognitionIsRunning(false);
-      switchAvatarVideo('normal.mp4', true);
-    };
-
-    try {
-      recognition.start();
-    } catch (error) {
-      console.error('Recognition start error:', error);
-      setIsRecording(false);
-      setRecognitionIsRunning(false);
-      await switchAvatarVideo('normal.mp4', true);
-    }
-  };
-
-  const recordTranscript = async (transcript) => {
-    try {
-      console.log('Recording transcript for question:', currentQuestion);
-      const response = await axios.post('http://localhost:5000/api/interview/record-response', {
-        audio: transcript || 'No speech detected',
-        question: currentQuestion
-      });
-      setResponses(prev => [...prev, {
-        question: currentQuestion,
-        response: response.data.response,
-        score: response.data.score
-      }]);
-      setCurrentQuestion(null); // Clear current question immediately
-      await fetchNextQuestion();
-    } catch (error) {
-      console.error('Record error:', error);
-      await switchAvatarVideo('normal.mp4', true);
-    }
-  };
-
-  const endInterview = async () => {
-    try {
-      const response = await axios.post('http://localhost:5000/api/interview/end-interview');
-      setIsInterviewEnded(true);
-      stopWebcam();
-      if (avatarVideoRef.current) avatarVideoRef.current.pause();
-      speechSynthesis.cancel();
-      navigate('/feedback', { state: response.data });
-    } catch (error) {
-      console.error('End interview error:', error);
-      await switchAvatarVideo('normal.mp4', true);
-    }
-  };
-
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [currentQuestion, responses]);
-
-  return (
-    <div className="interview-container">
-      <div className="main-section">
-        <div className="webcam-section">
-          <video
-            ref={avatarVideoRef}
-            className="avatar-video"
-            muted
-            autoPlay
-            playsInline
-          />
-          <video ref={webcamRef} autoPlay className="webcam-feed" />
-        </div>
-        <div className="chat-section">
-          <div className="messages-list">
-            {responses.map((res, index) => (
-              <div key={index} className="message-group">
-                <div className="message question-message">
-                  <div className="question-bubble"><strong>Question:</strong> {res.question}</div>
-                </div>
-                <div className="message answer-message">
-                  <div className="answer-bubble"><strong>Answer:</strong> {res.response}</div>
-                </div>
-              </div>
-            ))}
-            {currentQuestion && !isInterviewEnded && (
-              <div className="message question-message">
-                <div className="question-bubble"><strong>Question:</strong> {currentQuestion}</div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-      </div>
-
-      <div className="controls">
-        <button onClick={startRecording} disabled={isRecording || !currentQuestion || isInterviewEnded}>
-          {isRecording ? 'Recording...' : 'Record Response'}
-        </button>
-        <button onClick={fetchNextQuestion} disabled={isRecording || isInterviewEnded || isFetchingQuestion}>
-          Next Question
-        </button>
-        <button onClick={endInterview} disabled={isInterviewEnded}>
-          End Interview
-        </button>
-      </div>
-      <div className="debug">{debugMessage}</div>
     </div>
   );
 };
