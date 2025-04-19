@@ -44,8 +44,8 @@ const Signup = () => {
               />
               <span className="text-xl font-bold">VINTERVU</span>
             </a>
-            <h2 className="text-3xl sm:text-4xl font-bold mb-2">Join INTERVU 🎯</h2>
-            <p className="text-white/90">Your mock interview journey starts here.</p>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-2">Prepare smarter with AI-powered mock interviews.✨</h2>
+            <p className="text-white/90">Practice real-time with a lifelike avatar and tailored questions. Build confidence, get feedback, and ace your dream job.</p>
           </div>
         </div>
 

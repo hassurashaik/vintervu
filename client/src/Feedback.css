@@ -12,7 +12,7 @@
   }
   
   .summary {
-    background-color: purple;
+    background-color: rgb(113, 70, 244);
     color: white;
     padding: 15px;
     border-radius: 5px;
@@ -27,7 +27,7 @@
   }
   
   .feedback-item {
-    background: linear-gradient(135deg, hsl(260, 16%, 96%) 0%, #76c9f0 100%);
+    background: linear-gradient(135deg, hsl(260, 16%, 96%) 0%, rgb(113, 70, 244) 100%);
     padding: 15px;
     border-radius: 5px;
   }
@@ -42,12 +42,12 @@
     padding: 12px 24px;
     font-size: 16px;
     cursor: pointer;
-    background-color: #007bff;
+    background-color: rgb(113, 70, 244);
     color: white;
     border: none;
     border-radius: 5px;
   }
   
   .feedback-container button:hover {
-    background-color: #0056b3;
+    background-color:rgb(113, 70, 244);
   }

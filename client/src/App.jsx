@@ -8,7 +8,7 @@ import Home from './components/Home';
 import Login from "./components/Login";
 import Signup from "./components/Signup";
 import Analyze from "./components/ResumeAnalyzer";
-import AboutSection from "./components/AboutSection";
+
 
 const AppWrapper = () => {
   const location = useLocation();
@@ -25,7 +25,7 @@ const AppWrapper = () => {
         <Route path="/interview" element={<Interview />} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/analyze" element={<Analyze />} />
-        <Route path="/AboutSection" element={<AboutSection />} />
+       
       </Routes>
     </>
   );

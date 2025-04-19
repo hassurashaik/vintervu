@@ -11,7 +11,7 @@ const Feedback = () => {
   }
 
   return (
-    <div className="feedback-container">
+    <div className="feedback-container mt-10">
       <h2>Interview Feedback</h2>
       <div className="summary">
         <p><strong>Total Score:</strong> {feedback.totalScore} / {feedback.maxScore} ({feedback.percentage.toFixed(2)}%)</p>

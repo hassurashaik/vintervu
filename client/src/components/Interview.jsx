@@ -171,15 +171,15 @@ const Interview = () => {
     <div className="flex flex-col h-screen p-5 bg-gray-100">
       <div className="flex flex-1 gap-5">
         {/* Left: Avatar + Webcam + Buttons */}
-        <div className="flex flex-col items-center gap-2 w-[320px]">
+        <div className="flex flex-col items-center gap-2 w-[320px] ">
           <div className="relative w-full max-w-md border-2 border-gray-300 rounded-lg overflow-hidden">
             <video ref={avatarVideoRef} className="w-full rounded-lg" muted playsInline />
           </div>
           <video
             ref={webcamRef}
             autoPlay
-            className="w-full max-w-md border-2 border-gray-300 rounded-lg"
-            style={{ maxHeight: '300px' }}
+            className="w-full max-w-md  border-2 border-gray-300 rounded-lg"
+           
           />
 
           {/* Buttons Positioned Below Webcam */}
@@ -187,10 +187,10 @@ const Interview = () => {
             <button
               onClick={startRecording}
               disabled={isRecording || !currentQuestion || isInterviewEnded}
-              className={`px-6 py-3 text-white text-lg rounded ${
+              className={`px-6 py-3 text-white text-sm rounded ${
                 isRecording || !currentQuestion || isInterviewEnded
-                  ? 'bg-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-purple-500 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700'
               }`}
             >
               {isRecording ? 'Recording...' : 'Record Response'}
@@ -199,9 +199,9 @@ const Interview = () => {
             <button
               onClick={endInterview}
               disabled={isInterviewEnded}
-              className={`px-6 py-3 text-white text-lg rounded ${
+              className={`px-6 py-3 text-white text-sm rounded ${
                 isInterviewEnded
-                  ? 'bg-gray-500 cursor-not-allowed'
+                  ? 'bg-purple-500 cursor-not-allowed'
                   : 'bg-red-600 hover:bg-red-700'
               }`}
             >
@@ -221,12 +221,12 @@ const Interview = () => {
             {responses.map((res, index) => (
               <div key={index} className="flex flex-col gap-1">
                 <div className="flex justify-start">
-                  <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                  <div className="bg-purple-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
                     <strong>Question:</strong> {res.question}
                   </div>
                 </div>
                 <div className="flex justify-end">
-                  <div className="bg-green-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                  <div className="bg-gray-500 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
                     <strong>Answer:</strong> {res.response}
                   </div>
                 </div>
@@ -234,7 +234,7 @@ const Interview = () => {
             ))}
             {currentQuestion && !isInterviewEnded && (
               <div className="flex justify-start">
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
+                <div className="bg-purple-600 text-white px-4 py-2 rounded-2xl max-w-[70%] break-words">
                   <strong>Question:</strong> {currentQuestion}
                 </div>
               </div>
